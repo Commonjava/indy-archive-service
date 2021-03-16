@@ -1,0 +1,8 @@
+ArchiveService:
+  services:
+    - host: example.com
+      ssl: false
+      port: 80
+      path-pattern: /api/.+
+  storeconfig:
+    path: /deployments/data/
