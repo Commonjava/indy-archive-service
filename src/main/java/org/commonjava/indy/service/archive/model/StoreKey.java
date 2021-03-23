@@ -40,7 +40,11 @@ public final class StoreKey
 
     private static String MAVEN_PKG_KEY = "maven";
 
-    public StoreKey(){}
+    public StoreKey(){
+        packageType = "";
+        type = StoreType.group;
+        name = "";
+    }
 
     public StoreKey( final String packageType, final StoreType type, final String name )
     {

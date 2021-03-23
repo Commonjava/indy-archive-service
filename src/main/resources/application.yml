@@ -1,3 +1,4 @@
+
 quarkus:
   http:
     port: 8080
@@ -45,4 +46,4 @@ quarkus:
 
 pre-seed:
   indy-server: indy-master-devel.psi.redhat.com
-  storageDir: /data
+  storage-dir: /Users/yuugiri/deployments/data

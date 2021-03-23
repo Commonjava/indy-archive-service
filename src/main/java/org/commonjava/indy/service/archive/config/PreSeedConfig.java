@@ -9,7 +9,8 @@ import java.util.Optional;
 public class PreSeedConfig
 {
     @ConfigProperty( name = "indy-server" )
-    public Optional<String> indyServer;
+    public String indyServer;
 
-    public Optional<String> storageDir;
+    @ConfigProperty( name = "storage-dir" )
+    public String storageDir;
 }
