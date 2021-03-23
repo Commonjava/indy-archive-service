@@ -16,6 +16,7 @@
 package org.commonjava.indy.service.archive.model.dto;
 
 import org.commonjava.indy.service.archive.model.StoreKey;
+import org.commonjava.indy.service.archive.model.StoreType;
 
 public class HistoricalContentEntryDTO
         implements Comparable<HistoricalContentEntryDTO>
@@ -42,6 +43,12 @@ public class HistoricalContentEntryDTO
 
     public HistoricalContentEntryDTO()
     {
+        this.storeKey = new StoreKey();
+        this.path = "";
+        this.md5 = "";
+        this.sha1 = "";
+        this.sha256 = "";
+        this.size = Long.valueOf(-1);
     }
 
     public HistoricalContentEntryDTO( final StoreKey storeKey, final String path )

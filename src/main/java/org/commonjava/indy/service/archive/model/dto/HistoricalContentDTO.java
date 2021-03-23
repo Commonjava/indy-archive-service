@@ -15,6 +15,7 @@
  */
 package org.commonjava.indy.service.archive.model.dto;
 
+import java.util.HashSet;
 import java.util.Set;
 
 public class HistoricalContentDTO
@@ -27,6 +28,9 @@ public class HistoricalContentDTO
 
     public HistoricalContentDTO()
     {
+        this.buildConfigId = "";
+        this.trackId = "";
+        this.downloads = new HashSet<>();
     }
 
     public HistoricalContentDTO( String buildConfigId, String trackId, Set<HistoricalContentEntryDTO> downloads ) {

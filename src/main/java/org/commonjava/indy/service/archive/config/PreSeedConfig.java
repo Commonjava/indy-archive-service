@@ -1,15 +1,32 @@
 package org.commonjava.indy.service.archive.config;
 
-import io.quarkus.arc.config.ConfigProperties;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import java.util.Optional;
-
-@ConfigProperties( prefix = "pre-seed" )
 public class PreSeedConfig
 {
-    @ConfigProperty( name = "indy-server" )
-    public Optional<String> indyServer;
+    @ConfigProperty( name = "pre-seed.dir", defaultValue = "/deployments/data")
+    public String dir;
 
-    public Optional<String> storageDir;
+    @ConfigProperty( name = "pre-seed.pattern")
+    public String pattern;
+
+    @ConfigProperty( name = "pre-seed.upstream.host")
+    public String host;
+
+    @ConfigProperty( name = "pre-seed.upstream.port")
+    public int port;
+
+    @ConfigProperty( name = "pre-seed.upstream.ssl")
+    public boolean ssl;
+
+    @Override
+    public String toString() {
+        return "PreSeedConfig{" +
+                "dir='" + dir + '\'' +
+                ", pattern='" + pattern + '\'' +
+                ", host='" + host + '\'' +
+                ", port=" + port +
+                ", ssl=" + ssl +
+                '}';
+    }
 }

@@ -44,5 +44,9 @@ quarkus:
     always-include: true
 
 pre-seed:
-  indy-server: indy-master-devel.psi.redhat.com
-  storageDir: /data
+  dir: /deployments/data
+  pattern: ".+\\.(pom|jar)(\\.(md5|sha.+))?$"
+  upstream:
+    ssl: true
+    host: repo1.maven.org
+    port: 443
