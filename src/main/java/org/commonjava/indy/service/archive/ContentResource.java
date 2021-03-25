@@ -14,7 +14,7 @@ import javax.ws.rs.core.Response;
 import java.io.File;
 
 @Path("/rest")
-public class ContentRESTResource {
+public class ContentResource {
 
     @Inject
     PreSeedConfig pConfig;
