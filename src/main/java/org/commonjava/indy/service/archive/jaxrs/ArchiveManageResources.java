@@ -75,96 +75,130 @@ public class ArchiveManageResources
 
     @Operation( description = "Generate archive based on tracked content" )
     @APIResponse( responseCode = "201", description = "The archive is created successfully" )
-    @RequestBody( description = "The tracked content definition JSON", name = "body", required = true,
-            content = @Content( schema = @Schema( implementation = HistoricalContentDTO.class ) ) )
+    @RequestBody( description = "The tracked content definition JSON", name = "body", required = true, content = @Content( schema = @Schema( implementation = HistoricalContentDTO.class ) ) )
     @POST
     @Path( "generate" )
     @Consumes( APPLICATION_JSON )
-    public Uni<Response> create(final @Context UriInfo uriInfo, final @Context HttpRequest request ) {
+    public Uni<Response> create( final @Context UriInfo uriInfo, final @Context HttpRequest request )
+    {
 
         HistoricalContentDTO content;
 
-        try {
+        try
+        {
             String json = IOUtils.toString( request.getInputStream(), Charset.defaultCharset() );
             content = objectMapper.readValue( json, HistoricalContentDTO.class );
-            if ( content == null ) {
-                return sendError(500,"Failed to read historical content which is empty.");
+            if ( content == null )
+            {
+                return sendError( 500, "Failed to read historical content which is empty." );
             }
-        } catch ( final IOException e ) {
-            return sendError(500,"Failed to read historical content file from request body.");
+        }
+        catch ( final IOException e )
+        {
+            return sendError( 500, "Failed to read historical content file from request body." );
         }
 
-        try {
+        try
+        {
             Map<String, String> downloadPaths = reader.readPaths( content );
             controller.downloadArtifacts( downloadPaths, content );
             Optional<File> archive = controller.generateArchive( content );
             if ( archive.isEmpty() )
             {
-                return sendError(500,"Failed to get downloaded contents for archive.");
+                return sendError( 500, "Failed to get downloaded contents for archive." );
             }
             controller.renderArchive( archive.get(), content.getBuildConfigId() );
-        } catch ( InterruptedException e ) {
-            return sendError(500,"Artifacts downloading is interrupted.");
-        } catch ( final ExecutionException e ) {
-            return sendError(500,"Artifacts download execution manager failed.");
-        } catch ( final IOException e ) {
-            return sendError(500,"Failed to generate historical archive from content.");
+        }
+        catch ( InterruptedException e )
+        {
+            return sendError( 500, "Artifacts downloading is interrupted." );
+        }
+        catch ( final ExecutionException e )
+        {
+            return sendError( 500, "Artifacts download execution manager failed." );
+        }
+        catch ( final IOException e )
+        {
+            return sendError( 500, "Failed to generate historical archive from content." );
         }
 
-        return Uni.createFrom().item(uriInfo.getRequestUri())
-                .onItem().transform(uri -> Response.created(uri).build());
+        return Uni.createFrom()
+                  .item( uriInfo.getRequestUri() )
+                  .onItem()
+                  .transform( uri -> Response.created( uri ).build() );
     }
 
     @Operation( description = "Get latest historical build archive by buildConfigId" )
     @APIResponse( responseCode = "200", description = "Get the history archive successfully" )
     @APIResponse( responseCode = "204", description = "The history archive doesn't exist" )
     @Path( "{buildConfigId}" )
-    @Produces ( APPLICATION_OCTET_STREAM )
+    @Produces( APPLICATION_OCTET_STREAM )
     @GET
     public Uni<Response> get( final @PathParam( "buildConfigId" ) String buildConfigId, final @Context UriInfo uriInfo )
     {
         InputStream inputStream = null;
 
-        try {
+        try
+        {
             Optional<File> file = controller.getArchiveInputStream( buildConfigId );
-            if(file.isPresent()){
+            if ( file.isPresent() )
+            {
                 inputStream = FileUtils.openInputStream( file.get() );
             }
-        } catch ( final IOException e ) {
-            return sendError(500,"Failed to generate historical archive from content.");
+        }
+        catch ( final IOException e )
+        {
+            return sendError( 500, "Failed to generate historical archive from content." );
         }
 
-        return buildWithHeader(Response.ok(new TransferStreamingOutput( inputStream )),buildConfigId);
+        return buildWithHeader( Response.ok( new TransferStreamingOutput( inputStream ) ), buildConfigId );
     }
 
     @Operation( description = "Delete the build archive by buildConfigId" )
     @APIResponse( responseCode = "204", description = "The history archive is deleted or doesn't exist" )
     @Path( "{buildConfigId}" )
     @DELETE
-    public Uni<Response> delete( final @PathParam( "buildConfigId" ) String buildConfigId, final @Context UriInfo uriInfo )
+    public Uni<Response> delete( final @PathParam( "buildConfigId" ) String buildConfigId,
+                                 final @Context UriInfo uriInfo )
     {
-        try {
+        try
+        {
             controller.deleteArchive( buildConfigId );
-        } catch ( final IOException e ) {
-            return Uni.createFrom().item(Status.NOT_FOUND)
-                    .onItem().transform(status -> Response.status(status).build());
+        }
+        catch ( final IOException e )
+        {
+            return Uni.createFrom()
+                      .item( Status.NOT_FOUND )
+                      .onItem()
+                      .transform( status -> Response.status( status ).build() );
         }
 
-        return Uni.createFrom().item(Status.NO_CONTENT)
-                .onItem().transform(status -> Response.status(status).build());
+        return Uni.createFrom()
+                  .item( Status.NO_CONTENT )
+                  .onItem()
+                  .transform( status -> Response.status( status ).build() );
     }
 
-
-    private Uni<Response> buildWithHeader(Response.ResponseBuilder builder, final String buildConfigId ) {
-        return Uni.createFrom().item(new StringBuilder())
-                .onItem().transform(header -> header.append("attachment;").append( "filename=" ).append( buildConfigId ).append( ".zip" ))
-                .onItem().transform(re -> builder.header("Content-Disposition", re.toString()).build());
+    private Uni<Response> buildWithHeader( Response.ResponseBuilder builder, final String buildConfigId )
+    {
+        return Uni.createFrom()
+                  .item( new StringBuilder() )
+                  .onItem()
+                  .transform( header -> header.append( "attachment;" )
+                                              .append( "filename=" )
+                                              .append( buildConfigId )
+                                              .append( ".zip" ) )
+                  .onItem()
+                  .transform( re -> builder.header( "Content-Disposition", re.toString() ).build() );
     }
 
-    private Uni<Response> sendError(int status, String message){
-        return responseHelper.fromResponseReactive(message)
-                .onItem().transform(re -> Response.status(status,re))
-                .onItem().transform(Response.ResponseBuilder::build);
+    private Uni<Response> sendError( int status, String message )
+    {
+        return responseHelper.fromResponseReactive( message )
+                             .onItem()
+                             .transform( re -> Response.status( status, re ) )
+                             .onItem()
+                             .transform( Response.ResponseBuilder::build );
     }
 
 }

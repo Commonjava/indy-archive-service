@@ -28,16 +28,18 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 public class ResponseHelper
 {
     private final Logger logger = LoggerFactory.getLogger( getClass() );
+
     public Response fromResponse( String message )
     {
         ResponseBuilder builder = Response.status( Response.Status.INTERNAL_SERVER_ERROR )
-                                            .type( MediaType.TEXT_PLAIN ).entity( message );
+                                          .type( MediaType.TEXT_PLAIN )
+                                          .entity( message );
         return builder.build();
     }
 
-    public Uni<String> fromResponseReactive(String message )
+    public Uni<String> fromResponseReactive( String message )
     {
         logger.error( message );
-        return Uni.createFrom().item(message);
+        return Uni.createFrom().item( message );
     }
 }
