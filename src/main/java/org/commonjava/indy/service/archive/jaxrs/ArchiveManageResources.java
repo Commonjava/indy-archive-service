@@ -15,9 +15,14 @@
  */
 package org.commonjava.indy.service.archive.jaxrs;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.commonjava.indy.service.archive.controller.ArchiveController;
 import org.commonjava.indy.service.archive.model.dto.HistoricalContentDTO;
-import org.commonjava.indy.service.archive.services.ArchiveManagerService;
+import org.commonjava.indy.service.archive.util.HistoricalContentListReader;
+import org.commonjava.indy.service.archive.util.TransferStreamingOutput;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -40,6 +45,14 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.MediaType.APPLICATION_OCTET_STREAM;
 
@@ -49,7 +62,16 @@ public class ArchiveManageResources
     private final Logger logger = LoggerFactory.getLogger( getClass() );
 
     @Inject
-    ArchiveManagerService archiveManagerService;
+    ResponseHelper responseHelper;
+
+    @Inject
+    ObjectMapper objectMapper;
+
+    @Inject
+    HistoricalContentListReader reader;
+
+    @Inject
+    ArchiveController controller;
 
     @Operation( description = "Generate archive based on tracked content" )
     @APIResponse( responseCode = "201", description = "The archive is created successfully" )
@@ -59,7 +81,38 @@ public class ArchiveManageResources
     @Path( "generate" )
     @Consumes( APPLICATION_JSON )
     public Uni<Response> create(final @Context UriInfo uriInfo, final @Context HttpRequest request ) {
-        return archiveManagerService.create(uriInfo,request);
+
+        HistoricalContentDTO content;
+
+        try {
+            String json = IOUtils.toString( request.getInputStream(), Charset.defaultCharset() );
+            content = objectMapper.readValue( json, HistoricalContentDTO.class );
+            if ( content == null ) {
+                return sendError(500,"Failed to read historical content which is empty.");
+            }
+        } catch ( final IOException e ) {
+            return sendError(500,"Failed to read historical content file from request body.");
+        }
+
+        try {
+            Map<String, String> downloadPaths = reader.readPaths( content );
+            controller.downloadArtifacts( downloadPaths, content );
+            Optional<File> archive = controller.generateArchive( content );
+            if ( archive.isEmpty() )
+            {
+                return sendError(500,"Failed to get downloaded contents for archive.");
+            }
+            controller.renderArchive( archive.get(), content.getBuildConfigId() );
+        } catch ( InterruptedException e ) {
+            return sendError(500,"Artifacts downloading is interrupted.");
+        } catch ( final ExecutionException e ) {
+            return sendError(500,"Artifacts download execution manager failed.");
+        } catch ( final IOException e ) {
+            return sendError(500,"Failed to generate historical archive from content.");
+        }
+
+        return Uni.createFrom().item(uriInfo.getRequestUri())
+                .onItem().transform(uri -> Response.created(uri).build());
     }
 
     @Operation( description = "Get latest historical build archive by buildConfigId" )
@@ -70,7 +123,18 @@ public class ArchiveManageResources
     @GET
     public Uni<Response> get( final @PathParam( "buildConfigId" ) String buildConfigId, final @Context UriInfo uriInfo )
     {
-        return archiveManagerService.get(buildConfigId,uriInfo);
+        InputStream inputStream = null;
+
+        try {
+            Optional<File> file = controller.getArchiveInputStream( buildConfigId );
+            if(file.isPresent()){
+                inputStream = FileUtils.openInputStream( file.get() );
+            }
+        } catch ( final IOException e ) {
+            return sendError(500,"Failed to generate historical archive from content.");
+        }
+
+        return buildWithHeader(Response.ok(new TransferStreamingOutput( inputStream )),buildConfigId);
     }
 
     @Operation( description = "Delete the build archive by buildConfigId" )
@@ -79,9 +143,28 @@ public class ArchiveManageResources
     @DELETE
     public Uni<Response> delete( final @PathParam( "buildConfigId" ) String buildConfigId, final @Context UriInfo uriInfo )
     {
-        return archiveManagerService.delete(buildConfigId)
-                .onItem().transform(deleted -> deleted ? Status.NO_CONTENT:Status.NOT_FOUND)
+        try {
+            controller.deleteArchive( buildConfigId );
+        } catch ( final IOException e ) {
+            return Uni.createFrom().item(Status.NOT_FOUND)
+                    .onItem().transform(status -> Response.status(status).build());
+        }
+
+        return Uni.createFrom().item(Status.NO_CONTENT)
                 .onItem().transform(status -> Response.status(status).build());
+    }
+
+
+    private Uni<Response> buildWithHeader(Response.ResponseBuilder builder, final String buildConfigId ) {
+        return Uni.createFrom().item(new StringBuilder())
+                .onItem().transform(header -> header.append("attachment;").append( "filename=" ).append( buildConfigId ).append( ".zip" ))
+                .onItem().transform(re -> builder.header("Content-Disposition", re.toString()).build());
+    }
+
+    private Uni<Response> sendError(int status, String message){
+        return responseHelper.fromResponseReactive(message)
+                .onItem().transform(re -> Response.status(status,re))
+                .onItem().transform(Response.ResponseBuilder::build);
     }
 
 }
