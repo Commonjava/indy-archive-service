@@ -55,14 +55,12 @@ import java.util.concurrent.ExecutionException;
 
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.MediaType.APPLICATION_OCTET_STREAM;
+import static javax.ws.rs.core.MediaType.TEXT_PLAIN;
 
 @Path( "/api/archive" )
 public class ArchiveManageResources
 {
     private final Logger logger = LoggerFactory.getLogger( getClass() );
-
-    @Inject
-    ResponseHelper responseHelper;
 
     @Inject
     ObjectMapper objectMapper;
@@ -90,12 +88,12 @@ public class ArchiveManageResources
             content = objectMapper.readValue( json, HistoricalContentDTO.class );
             if ( content == null )
             {
-                return sendError( 500, "Failed to read historical content which is empty." );
+                return sendResponse( Status.INTERNAL_SERVER_ERROR, "Failed to read historical content which is empty." );
             }
         }
         catch ( final IOException e )
         {
-            return sendError( 500, "Failed to read historical content file from request body." );
+            return sendResponse( Status.INTERNAL_SERVER_ERROR, "Failed to read historical content file from request body." );
         }
 
         try
@@ -105,21 +103,21 @@ public class ArchiveManageResources
             Optional<File> archive = controller.generateArchive( content );
             if ( archive.isEmpty() )
             {
-                return sendError( 500, "Failed to get downloaded contents for archive." );
+                return sendResponse( Status.INTERNAL_SERVER_ERROR, "Failed to get downloaded contents for archive." );
             }
             controller.renderArchive( archive.get(), content.getBuildConfigId() );
         }
         catch ( InterruptedException e )
         {
-            return sendError( 500, "Artifacts downloading is interrupted." );
+            return sendResponse( Status.INTERNAL_SERVER_ERROR, "Artifacts downloading is interrupted." );
         }
         catch ( final ExecutionException e )
         {
-            return sendError( 500, "Artifacts download execution manager failed." );
+            return sendResponse( Status.INTERNAL_SERVER_ERROR, "Artifacts download execution manager failed." );
         }
         catch ( final IOException e )
         {
-            return sendError( 500, "Failed to generate historical archive from content." );
+            return sendResponse( Status.INTERNAL_SERVER_ERROR, "Failed to generate historical archive from content." );
         }
 
         return Uni.createFrom()
@@ -148,7 +146,7 @@ public class ArchiveManageResources
         }
         catch ( final IOException e )
         {
-            return sendError( 500, "Failed to generate historical archive from content." );
+            return sendResponse( Status.INTERNAL_SERVER_ERROR, "Failed to generate historical archive from content." );
         }
 
         return buildWithHeader( Response.ok( new TransferStreamingOutput( inputStream ) ), buildConfigId );
@@ -167,16 +165,10 @@ public class ArchiveManageResources
         }
         catch ( final IOException e )
         {
-            return Uni.createFrom()
-                      .item( Status.NOT_FOUND )
-                      .onItem()
-                      .transform( status -> Response.status( status ).build() );
+            return sendResponse( Status.NOT_FOUND, "");
         }
 
-        return Uni.createFrom()
-                  .item( Status.NO_CONTENT )
-                  .onItem()
-                  .transform( status -> Response.status( status ).build() );
+        return sendResponse( Status.NO_CONTENT, "" );
     }
 
     private Uni<Response> buildWithHeader( Response.ResponseBuilder builder, final String buildConfigId )
@@ -192,11 +184,12 @@ public class ArchiveManageResources
                   .transform( re -> builder.header( "Content-Disposition", re.toString() ).build() );
     }
 
-    private Uni<Response> sendError( int status, String message )
+    private Uni<Response> sendResponse( Status status, String message )
     {
-        return responseHelper.fromResponseReactive( message )
+        logger.error( message );
+        return Uni.createFrom().item( message )
                              .onItem()
-                             .transform( re -> Response.status( status, re ) )
+                             .transform( re -> Response.status( status ).type( TEXT_PLAIN ).entity( re ) )
                              .onItem()
                              .transform( Response.ResponseBuilder::build );
     }
