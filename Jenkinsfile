@@ -1,5 +1,5 @@
 def artifact="target/*.jar"
-def artifact_runner="target/*-runner.jar"
+def artifact_runner="target/*.jar"
 
 def ocp_map = '/mnt/ocp/jenkins-openshift-mappings.json'
 def bc_section = 'build-configs'
