@@ -59,7 +59,7 @@ jobs:
     - name: Checkout tools repo
       uses: actions/checkout@v4
       with:
-        repository: shokakucarrier/commonjava-images
+        repository: commonjava/commonjava-images
         path: commonjava-images
 
     - name: Log in to Quay.io
@@ -73,11 +73,11 @@ jobs:
       id: buildah-build
       uses: redhat-actions/buildah-build@v2
       with:
-        image: indy
-        tags: latest-${{ github.ref_name }}
+        image: indy-archive-service
+        tags: ${{ github.ref_name }}
         platforms: linux/amd64
         containerfiles: |
-          commonjava-images/indy-archive-service/multistage.Dockerfile
+          commonjava-images/indy-archive-service/actions.Dockerfile
         context: commonjava-images/indy-archive-service/
         build-args: |
           GIT_URL=https://github.com/${{ github.repository }}
