@@ -56,7 +56,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -77,11 +76,17 @@ public class ArchiveController
 {
     private final Logger logger = LoggerFactory.getLogger( getClass() );
 
-    public final static String EVENT_GENERATE_ARCHIVE = "generate-archive";
+    public static final String EVENT_GENERATE_ARCHIVE = "generate-archive";
 
-    public final static String CONTENT_DIR = "/content";
+    public static final String CONTENT_DIR = "/content";
 
-    public final static String ARCHIVE_DIR = "/archive";
+    public static final String ARCHIVE_DIR = "/archive";
+
+    public static final String SHA1 = "SHA-1";
+
+    public static final String SHA256 = "SHA-256";
+
+    public static final String MD5 = "MD5";
 
     private final String ARCHIVE_SUFFIX = ".zip";
 
@@ -383,15 +388,7 @@ public class ArchiveController
         // cleanup the build config content dir before download
         cleanupBCWorkspace( buildConfigId );
 
-        HistoricalContentDTO originalTracked = unpackHistoricalArchive( contentBuildDir, buildConfigId );
-        Map<String, List<String>> originalChecksumsMap = new HashMap<>();
-        if ( originalTracked != null )
-        {
-            logger.trace( "originalChecksumsMap generated for {}", buildConfigId );
-            Map<String, HistoricalEntryDTO> originalEntries = reader.readEntries( originalTracked );
-            originalEntries.forEach( ( key, entry ) -> originalChecksumsMap.put( key, new ArrayList<>(
-                    Arrays.asList( entry.getSha1(), entry.getSha256(), entry.getMd5() ) ) ) );
-        }
+        unpackHistoricalArchive( contentBuildDir, buildConfigId );
 
         for ( String path : downloadPaths.keySet() )
         {
@@ -399,8 +396,8 @@ public class ArchiveController
             HistoricalEntryDTO entry = entryDTOs.get( path );
             List<String> checksums =
                     new ArrayList<>( Arrays.asList( entry.getSha1(), entry.getSha256(), entry.getMd5() ) );
-            List<String> originalChecksums = originalChecksumsMap.get( path );
-            executor.submit( download( contentBuildDir, path, filePath, checksums, originalChecksums, cookieStore ) );
+
+            executor.submit( download( contentBuildDir, path, filePath, checksums, cookieStore ) );
         }
         int success = 0;
         int failed = 0;
@@ -534,14 +531,14 @@ public class ArchiveController
         }
     }
 
-    private HistoricalContentDTO unpackHistoricalArchive( String contentBuildDir, String buildConfigId )
+    private void unpackHistoricalArchive( String contentBuildDir, String buildConfigId )
             throws IOException
     {
         final File archive = new File( archiveDir, buildConfigId + ARCHIVE_SUFFIX );
         if ( !archive.exists() )
         {
             logger.debug( "Don't find historical archive for buildConfigId: {}.", buildConfigId );
-            return null;
+            return;
         }
 
         logger.info( "Start unpacking historical archive for buildConfigId: {}.", buildConfigId );
@@ -559,52 +556,66 @@ public class ArchiveController
 
         }
         inputStream.close();
-
-        File originalTracked = new File( contentBuildDir, buildConfigId );
-        if ( originalTracked.exists() )
-        {
-            return objectMapper.readValue( originalTracked, HistoricalContentDTO.class );
-        }
-        else
-        {
-            logger.debug( "No tracked json file found after zip unpack for buildConfigId {}", buildConfigId );
-            return null;
-        }
     }
 
-    private boolean validateChecksum( final String filePath, final List<String> current, final List<String> original )
+    private boolean validateChecksum( final String filePath, final File file, final List<String> current )
     {
         if ( CHECKSUMS.stream().anyMatch( suffix -> filePath.toLowerCase().endsWith( suffix ) ) )
         {
             // skip to validate checksum files
             return false;
         }
-        if ( original == null || original.isEmpty() || original.stream().allMatch( Objects::isNull ) )
+        try
         {
+            // once sha1 is matched, skip downloading
+            if ( getFileDigest( file, SHA1 ).equals( current.get( 0 ).toLowerCase() ) )
+            {
+                return true;
+            }
+            // once sha256 is matched, skip downloading
+            if ( getFileDigest( file, SHA256 ).equals( current.get( 1 ).toLowerCase() ) )
+            {
+                return true;
+            }
+            // once md5 is matched, skip downloading
+            return getFileDigest( file, MD5 ).equals( current.get( 2 ).toLowerCase() );
+        }
+        catch ( Exception e )
+        {
+            logger.error( "Failed to digest file, path {}, will download from remote.", filePath );
             return false;
         }
-        // once sha1 is matched, skip downloading
-        if ( original.get( 0 ) != null && original.get( 0 ).equals( current.get( 0 ) ) )
+    }
+
+    private String getFileDigest( final File file, final String algorithm )
+            throws Exception
+    {
+        String result = "";
+        try (FileInputStream fis = new FileInputStream( file ))
         {
-            return true;
+            switch ( algorithm )
+            {
+                case SHA1:
+                    result = DigestUtils.sha1Hex( fis );
+                    break;
+                case SHA256:
+                    result = DigestUtils.sha256Hex( fis );
+                    break;
+                case MD5:
+                    result = DigestUtils.md5Hex( fis );
+                    break;
+            }
         }
-        // once sha256 is matched, skip downloading
-        if ( original.get( 1 ) != null && original.get( 1 ).equals( current.get( 1 ) ) )
-        {
-            return true;
-        }
-        // once md5 is matched, skip downloading
-        return original.get( 2 ) != null && original.get( 2 ).equals( current.get( 2 ) );
+        return result.toLowerCase();
     }
 
     private Callable<Boolean> download( final String contentBuildDir, final String path, final String filePath,
-                                        final List<String> checksums, final List<String> originalChecksums,
-                                        final CookieStore cookieStore )
+                                        final List<String> checksums, final CookieStore cookieStore )
     {
         return () -> {
             final File target = new File( contentBuildDir, filePath );
 
-            if ( target.exists() && validateChecksum( filePath, checksums, originalChecksums ) )
+            if ( target.exists() && validateChecksum( filePath, target, checksums ) )
             {
                 logger.debug(
                         "<<<Already existed in historical archive, and checksum matches, skip downloading, path: {}.",
