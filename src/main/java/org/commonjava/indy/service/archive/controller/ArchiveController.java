@@ -414,7 +414,7 @@ public class ArchiveController
         }
         // file the latest tracked json at the end
         fileTrackedContent( contentBuildDir, content );
-        logger.info( "Artifacts download completed, success:{}, failed:{}", success, failed );
+        logger.info( "Artifacts download completed, buildConfigId:{}, success:{}, failed:{}", buildConfigId, success, failed );
     }
 
     private Optional<File> generateArchive( final List<String> paths, final HistoricalContentDTO content )
