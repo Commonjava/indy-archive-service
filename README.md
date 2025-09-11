@@ -1,73 +1,80 @@
-# indy-archive-service project
+# Indy Archive Service
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Archive service for Indy artifact repository manager - caches build dependencies as local archives to accelerate similar future builds.
 
-If you want to learn more about Quarkus, please visit its website: https://quarkus.io/ .
+## Overview
 
-## Running the application in dev mode
+The Indy Archive Service cooperates with the sidecar that enhances build performance by creating local archives of build dependencies during the build process. These archives serve as cached dependency sets that can significantly accelerate subsequent builds with similar dependency requirements.
 
-You can run your application in dev mode that enables live coding using:
+Unlike traditional artifact repository archiving, this service focuses on build-time optimization rather than long-term storage management. It works in conjunction with the Indy Sidecar framework to provide intelligent dependency caching and retrieval mechanisms.
+
+## Key Problems Solved
+
+### Build Performance Optimization
+
+Issue: Builds spend significant time downloading dependencies from remote repositories
+
+Solution: Cache dependency sets locally as archives for rapid retrieval in similar builds
+
+### Network Dependency Reduction
+
+Issue: Builds are vulnerable to network issues and remote repository outages
+
+Solution: Local archive caches reduce dependency on external network connectivity
+
+### Bandwidth Optimization
+
+Issue: Repeated downloads of the same dependencies consume network bandwidth
+
+Solution: Single download, multiple reuse through archive caching
+
+## Features
+
+### Dependency Archiving
+
+Build-Time Archiving: Automatically creates dependency archives during successful builds
+
+Smart Packaging: Packages all resolved dependencies into optimized archive formats
+
+### Archive Management
+
+Archive Indexing: Maintains searchable index of available dependency archives
+
+Archive Contents Validation: Validates archive contents integrity and validity
+
+Storage Optimization: Efficiently stores archives with compression and deduplication
+
+## Sidecar / Archive Integration Architecture Overview
+
+Build Process ◄──▶ Indy Sidecar ◄──▶ Indy / Archive Service (LFS)
+
+## Integration Workflow
+
+Build Initiation: Build process sends dependency requirements to Indy Sidecar
+
+Routing Decision: Sidecar routes request based on archive availability
+
+Archive Path: If suitable archive content exists → Archive Service provides cached dependencies
+
+Traditional Path: If no archive content exists → Indy Core resolves dependencies traditionally
+
+## Build & Deploy
+
+### dev mode
+
 ```shell script
 ./mvnw compile quarkus:dev
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at http://localhost:8080/q/dev/.
+### native executable
 
-## Packaging and running the application
-
-The application can be packaged using:
-```shell script
-./mvnw package
-```
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
-
-If you want to build an _über-jar_, execute the following command:
-```shell script
-./mvnw package -Dquarkus.package.type=uber-jar
-```
-
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
-
-## Creating a native executable
-
-You can create a native executable using: 
-```shell script
-./mvnw package -Pnative
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using: 
 ```shell script
 ./mvnw package -Pnative -Dquarkus.native.container-build=true
 ```
 
-You can then execute your native executable with: `./target/indy-archive-service-1.0.0-SNAPSHOT-runner`
+## Related Projects
 
-If you want to learn more about building native executables, please consult https://quarkus.io/guides/maven-tooling.html.
+[Indy](https://github.com/Commonjava/indy)
 
-## Related guides
+[Indy Sidecar](https://github.com/Commonjava/indy-sidecar)
 
-- Infinispan Client ([guide](https://quarkus.io/guides/infinispan-client)): Connect to the Infinispan data grid for distributed caching
-- REST Client ([guide](https://quarkus.io/guides/rest-client)): Call REST services
-- RESTEasy Mutiny ([guide](https://quarkus.io/guides/getting-started-reactive#mutiny)): Mutiny support for RESTEasy server
-- YAML Configuration ([guide](https://quarkus.io/guides/config#yaml)): Use YAML to configure your Quarkus application
-- RESTEasy JAX-RS ([guide](https://quarkus.io/guides/rest-json)): REST endpoint framework implementing JAX-RS and more
-- SmallRye Health ([guide](https://quarkus.io/guides/microprofile-health)): Monitor service health
-- Reactive PostgreSQL client ([guide](https://quarkus.io/guides/reactive-sql-clients)): Connect to the PostgreSQL database using the reactive pattern
-- Cache ([guide](https://quarkus.io/guides/cache)): Enable application data caching in CDI beans
-
-## Provided examples
-
-### YAML Config example
-
-This Supersonic example displays mach speed in your favourite unit, depending on the specified Quarkus configuration.
-
-[Related guide section...](https://quarkus.io/guides/config-reference#configuration-examples)
-
-The Quarkus configuration location is `src/main/resources/application.yml`.
-
-### RESTEasy JAX-RS example
-
-REST is easy peasy with this Hello World RESTEasy resource.
-
-[Related guide section...](https://quarkus.io/guides/getting-started#the-jax-rs-resources)
