@@ -236,7 +236,7 @@ public class ArchiveManageResources
     @Operation( description = "Create a test archive with timestamp suffix for testing purposes" )
     @APIResponse( responseCode = "200", description = "Test archive created successfully" )
     @APIResponse( responseCode = "500", description = "Failed to create test archive - directory may not be writable" )
-    @POST
+    @GET
     @Path( "test" )
     @Produces( APPLICATION_JSON )
     public Uni<Response> createTestArchive( final @Context UriInfo uriInfo )
