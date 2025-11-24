@@ -45,9 +45,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_OCTET_STREAM;
@@ -213,7 +218,7 @@ public class ArchiveManageResources
     @APIResponse( responseCode = "204", description = "The workplace cleanup is finished" )
     @Path( "cleanup" )
     @DELETE
-    public Uni<Response> delete( final @Context UriInfo uriInfo )
+    public Uni<Response> cleanup( final @Context UriInfo uriInfo )
     {
         try
         {
@@ -226,5 +231,42 @@ public class ArchiveManageResources
             return fromResponse( message );
         }
         return Uni.createFrom().item( noContent().build() );
+    }
+
+    @Operation( description = "Create a test archive with timestamp suffix for testing purposes" )
+    @APIResponse( responseCode = "200", description = "Test archive created successfully" )
+    @APIResponse( responseCode = "500", description = "Failed to create test archive - directory may not be writable" )
+    @POST
+    @Path( "test" )
+    @Produces( APPLICATION_JSON )
+    public Uni<Response> createTestArchive( final @Context UriInfo uriInfo )
+    {
+        try
+        {
+            String timestamp = LocalDateTime.now().format( DateTimeFormatter.ofPattern( "yyyyMMdd-HHmmss" ) );
+            String testArchiveName = "test-archive-" + timestamp;
+
+            File archiveFile = controller.createTestArchive( testArchiveName );
+
+            String message = String.format( "Test archive created successfully: %s.zip", testArchiveName );
+            logger.info( message );
+
+            return Uni.createFrom().item( Response.ok()
+                                                  .type( MediaType.APPLICATION_JSON )
+                                                  .entity( String.format( "{\"message\":\"%s\",\"archiveName\":\"%s.zip\"}",
+                                                                         message, testArchiveName ) )
+                                                  .build() );
+        }
+        catch ( final IOException e )
+        {
+            final String message = "Failed to create test archive: " + e.getMessage();
+            logger.error( message, e );
+            return Uni.createFrom().item( Response.status( Response.Status.INTERNAL_SERVER_ERROR )
+                                                  .type( MediaType.APPLICATION_JSON )
+                                                  .entity( String.format( "{\"error\":\"%s\",\"exceptionType\":\"%s\"}",
+                                                                         message.replace("\"", "\\\""),
+                                                                         e.getClass().getSimpleName() ) )
+                                                  .build() );
+        }
     }
 }
