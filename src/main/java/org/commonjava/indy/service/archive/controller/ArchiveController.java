@@ -338,6 +338,29 @@ public class ArchiveController
         }
     }
 
+    public File createTestArchive( final String archiveName ) throws IOException
+    {
+        File targetDir = new File( archiveDir );
+        targetDir.mkdirs();
+
+        final File archiveFile = new File( archiveDir, archiveName + ARCHIVE_SUFFIX );
+        logger.info( "Creating test archive: '{}'", archiveFile.getAbsolutePath() );
+
+        try ( ZipOutputStream zip = new ZipOutputStream( new FileOutputStream( archiveFile ) ) )
+        {
+            // Add a test file to the zip
+            ZipEntry entry = new ZipEntry( "test-file.txt" );
+            zip.putNextEntry( entry );
+
+            String testContent = "this is a test";
+            zip.write( testContent.getBytes() );
+            zip.closeEntry();
+        }
+
+        logger.info( "Test archive created successfully: '{}'", archiveFile.getAbsolutePath() );
+        return archiveFile;
+    }
+
     public boolean statusExists( final String buildConfigId )
     {
         return treated.containsKey( buildConfigId );
