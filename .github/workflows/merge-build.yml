@@ -82,7 +82,7 @@ jobs:
 
       - name: Buildah build
         id: buildah-build
-        uses: redhat-actions/buildah-build@v2
+        uses: redhat-actions/buildah-build@v3
         with:
           image: indy-archive-service
           tags: ${{ github.ref_name }}
